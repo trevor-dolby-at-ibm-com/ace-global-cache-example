@@ -144,6 +144,8 @@ the method, and are not part of the flow transaction:
 
 ![Transaction flow](transaction-boundary.png)
 
+See the "Transactions and Session methods" section at https://www.ibm.com/docs/en/wxs/8.6.1?topic=applications-using-sessions-access-data-in-grid 
+for more information on auto-commit.
 
 ## References
 
