@@ -5,6 +5,10 @@ Uses two flows:
 - WriteMapDataOnStartup populates the cache on first startup, and updates the version number of each entry on subequent startups.
 - ReadMapData runs every five seconds and reads all of the entries written by WriteMapDataOnStartup ten times.
 
+
+![Single server](single-server.png)
+![Two server](two-server.png)
+
 ## Pessimistic locking (ACE default)
 
 Running with an empty cache:
