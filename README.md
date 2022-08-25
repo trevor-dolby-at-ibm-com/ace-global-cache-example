@@ -130,3 +130,10 @@ WriteMapDataOnStartup setting 1000 entries
 2022-08-25 18:39:44.690     42 ReadMapData reading entries (10 times 1000 entries)
 2022-08-25 18:39:45.104     42 ReadMapData finished; foundAnyNullValues=false foundDifferentVersions=false
 ```
+
+## References
+
+ACE global cache locking configuration: https://www.ibm.com/docs/en/app-connect/11.0.0?topic=data-configuring-locking-strategies
+
+Locking strategies from the WXS docs: https://www.ibm.com/docs/en/wxs/8.6.1?topic=overview-locking-strategies
+
