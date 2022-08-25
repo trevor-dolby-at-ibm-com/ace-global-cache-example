@@ -137,6 +137,13 @@ WriteMapDataOnStartup setting 1000 entries
 2022-08-25 18:39:44.690     42 ReadMapData reading entries (10 times 1000 entries)
 2022-08-25 18:39:45.104     42 ReadMapData finished; foundAnyNullValues=false foundDifferentVersions=false
 ```
+## Transactional considerations
+
+Global cache updates using map.put() and other methods are automatically committed during the execution of
+the method, and are not part of the flow transaction:
+
+![Transaction flow](transaction-boundary.png)
+
 
 ## References
 
