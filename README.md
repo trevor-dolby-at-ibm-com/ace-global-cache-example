@@ -1,6 +1,31 @@
 # ace-global-cache-example
 Example using the embedded global cache in ACE
 
+Uses two flows:
+- WriteMapDataOnStartup populates the cache on first startup, and updates the version number of each entry on subequent startups.
+- ReadMapData runs every five seconds and reads all of the entries written by WriteMapDataOnStartup ten times.
+
+## Pessimistic locking (ACE default)
+
+Running with an empty cache:
+```
+[lots of log spam on startup]
+2022-08-25 18:46:40.338644: BIP1991I: Integration server has finished initialization. 
+2022-08-25 18:46:42.590184: BIP7155I: The integration server has established a connection to the embedded global cache. 
+WriteMapDataOnStartup setting 1000 entries
+2022-08-25 18:46:42.787     40 ReadMapData reading entries (10 times 1000 entries)
+2022-08-25 18:46:50.554     38 WriteMapDataOnStartup finished; numberOfEntriesCreated=1000 numberOfEntriesUpdated=0
+2022-08-25 18:46:57.457     40 ReadMapData finished; foundAnyNullValues=true foundDifferentVersions=false
+2022-08-25 18:46:57.459     40 ReadMapData looking for EXAMPLE.BASIC.MAP
+2022-08-25 18:46:57.461     40 ReadMapData reading entries (10 times 1000 entries)
+2022-08-25 18:47:05.370     40 ReadMapData finished; foundAnyNullValues=false foundDifferentVersions=false
+2022-08-25 18:47:05.372     40 ReadMapData looking for EXAMPLE.BASIC.MAP
+2022-08-25 18:47:05.374     40 ReadMapData reading entries (10 times 1000 entries)
+2022-08-25 18:47:13.223     40 ReadMapData finished; foundAnyNullValues=false foundDifferentVersions=false
+2022-08-25 18:47:13.225     40 ReadMapData looking for EXAMPLE.BASIC.MAP
+2022-08-25 18:47:13.227     40 ReadMapData reading entries (10 times 1000 entries)
+```
+where 10000 reads take around 7500-7800ms
 
 ## Optimistic locking
 
@@ -78,7 +103,7 @@ ReadMapData reading entries (10 times 1000 entries)
 2022-08-25 18:35:35.893     40 ReadMapData reading entries (10 times 1000 entries)
 2022-08-25 18:35:36.267     40 ReadMapData finished; foundAnyNullValues=false foundDifferentVersions=false
 ```
-where reads take around 350-400ms
+where 10000 reads take around 350-400ms
 
 With a preloaded cache:
 ```
