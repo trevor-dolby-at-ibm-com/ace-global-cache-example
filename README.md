@@ -5,12 +5,14 @@ Uses two flows:
 - WriteMapDataOnStartup populates the cache on first startup, and updates the version number of each entry on subequent startups.
 - ReadMapData runs every five seconds and reads all of the entries written by WriteMapDataOnStartup ten times.
 
+<img src="https://github.com/trevor-dolby-at-ibm-com/ace-global-cache-example/blob/main/single-server.png" width="600"/>
+
 ## Deployment configuration
 
 The results below were obtained using two independent ACE servers, with one running the flows and the other dedicated to 
 the global cache itself.
 
-![Two server](two-server.png)
+<img src="https://github.com/trevor-dolby-at-ibm-com/ace-global-cache-example/blob/main/two-server.png" width="600"/>
 
 ## Pessimistic locking (ACE default)
 
