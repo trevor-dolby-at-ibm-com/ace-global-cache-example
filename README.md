@@ -1,11 +1,25 @@
 # ace-global-cache-example
-Example using the embedded global cache in ACE
 
-Uses two flows:
-- WriteMapDataOnStartup populates the cache on first startup, and updates the version number of each entry on subequent startups.
-- ReadMapData runs every five seconds and reads all of the entries written by WriteMapDataOnStartup ten times.
+This repo contains an example using the embedded global cache in ACE and how to change the locking pattern
+for the global cache maps. Optimistic locking provides much better performance without sacrificing data
+coherence for the example flows, and this change is safe due to the auto-commit transactional model used
+in the global cache interactions from ACE.
 
-<img src="https://github.com/trevor-dolby-at-ibm-com/ace-global-cache-example/blob/main/single-server.png" width="600"/>
+The demo application uses two flows:
+- WriteMapDataOnStartup populates the cache on first startup, and updates the version number of each entry on subequent startups. See [WriteMapDataOnStartup_JavaCompute.java](BasicTimingJava/example/globalcache/WriteMapDataOnStartup_JavaCompute.java) for the Java code that implements the flow logic.
+- ReadMapData runs every five seconds and reads all of the entries written by WriteMapDataOnStartup ten times. See [ReadMapData_JavaCompute.java](BasicTimingJava/example/globalcache/ReadMapData_JavaCompute.java) for the Java code that implements the flow logic.
+
+Cloning this repo and deploying it locally should allow anyone using ACE v11 or later to recreate the 
+results, though ACE v12 is recommended due to having the eGit plugin (and therefore the git perspective) 
+included in the toolkit by default. The server to which the flows are deploy must have the global cache 
+support turned on and be connected to a global cache grid.
+
+The results are shown in detail below, but in a simple configuration involving two VMs the optimistic 
+locking configuration was an order of magnitude faster; see [pessimistic](#pessimistic-locking) and
+[optimistic](#optimistic-locking) sections for details on the performance numbers in the simple case. The
+[transactional considerations](#transactional-considerations) section provides more details on how
+ACE flows interact with global cache grids from a transactional perspective, and explains some of the 
+flow results in greater detail.
 
 ## Deployment configuration
 
@@ -14,7 +28,13 @@ the global cache itself.
 
 <img src="https://github.com/trevor-dolby-at-ibm-com/ace-global-cache-example/blob/main/two-server.png" width="600"/>
 
-## Pessimistic locking (ACE default)
+It is also possible to run the entire setup in a single server, though this is less realistic (most 
+global cache grids are spread across multiple servers) and shows less of an improvement with locking
+changes:
+
+<img src="https://github.com/trevor-dolby-at-ibm-com/ace-global-cache-example/blob/main/single-server.png" width="600"/>
+
+## Pessimistic locking
 
 Running with an empty cache:
 ```
