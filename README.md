@@ -1,8 +1,8 @@
 # ace-global-cache-example
 
-This repo contains an example using the embedded global cache in ACE and how to change the locking pattern
-for the global cache maps. Optimistic locking provides much better performance without sacrificing data
-coherence for the example flows, and this change is safe due to the auto-commit transactional model used
+This repo contains an example using the embedded global cache in ACE and describes how to change the locking
+pattern for the global cache maps. Optimistic locking provides much better performance without sacrificing
+data coherence for the example flows, and this change is safe due to the auto-commit transactional model used
 in the global cache interactions from ACE.
 
 The demo application uses two flows:
@@ -36,7 +36,9 @@ changes:
 
 ## Pessimistic locking
 
-Running with an empty cache:
+This is the ACE default behaviour, and so no additional configuration is required.
+
+Running the flows with an empty cache:
 ```
 [lots of log spam on startup]
 2022-08-25 18:46:40.338644: BIP1991I: Integration server has finished initialization. 
@@ -54,11 +56,17 @@ WriteMapDataOnStartup setting 1000 entries
 2022-08-25 18:47:13.225     40 ReadMapData looking for EXAMPLE.BASIC.MAP
 2022-08-25 18:47:13.227     40 ReadMapData reading entries (10 times 1000 entries)
 ```
-where 10000 reads take around 7500-7800ms
+where 10000 reads take around 7500-7800ms once the writer flow has finished. This is faster when run using
+a local cache, but still takes several seconds due to the locking requirements.
 
 ## Optimistic locking
 
-server.conf.yaml snippet
+### Setup
+
+Enabling optimistic locking is described in the ACE documentation (see [references](#references) for links)
+but the summary is as follows.
+
+server.conf.yaml snippet needed to configure the flow server assuming the grid is running on 192.168.1.252:
 ```
 ---
 ResourceManagers:
@@ -70,7 +78,7 @@ ResourceManagers:
     deploymentPolicyCustomFile: '/home/newuser/tmp/gc/deployment.xml'
 ```
 
-/home/newuser/tmp/gc/objectgrid.xml contains
+The map configuration in /home/newuser/tmp/gc/objectgrid.xml contains
 ```
 <?xml version="1.0" encoding="UTF-8"?>
 <objectGridConfig xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -84,8 +92,12 @@ ResourceManagers:
  </objectGrids>
 </objectGridConfig>
 ```
+with `lockStrategy="OPTIMISTIC_NO_VERSIONING"` being the critical attribute. See the WXS 
+documentation (link in the [references](#references) section) for a full description of the
+other tags, including `nearCacheInvalidationEnabled`.
 
-/home/newuser/tmp/gc/deployment.xml contains
+As well as the map configuration itself, /home/newuser/tmp/gc/deployment.xml contains the
+map reference for `EXAMPLE.*`:
 ```
 <?xml version="1.0" encoding="UTF-8"?>
 <deploymentPolicy xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
@@ -106,6 +118,13 @@ ResourceManagers:
  </objectgridDeployment>
 </deploymentPolicy>
 ```
+
+Note that these experiments require the XML configuration file changes to be made
+on both the flow server and the cache server; only the flow server server.conf.yaml
+settings are shown, but the cache server also needs the `objectGridCustomFile` and
+`deploymentPolicyCustomFile` settings in order for the options to fully take effect.
+
+### Runing with optimistic locking
 
 Running with an empty cache:
 ```
@@ -159,19 +178,59 @@ WriteMapDataOnStartup setting 1000 entries
 2022-08-25 18:39:44.690     42 ReadMapData reading entries (10 times 1000 entries)
 2022-08-25 18:39:45.104     42 ReadMapData finished; foundAnyNullValues=false foundDifferentVersions=false
 ```
+which shows similar times but slightly different startup messages.
+
 ## Transactional considerations
 
-Global cache updates using map.put() and other methods are automatically committed during the execution of
-the method, and are not part of the flow transaction:
+### Overview
+
+Global cache updates using map.put() and other methods are not part of the flow transaction, 
+and are instead automatically committed during the execution of the method:
 
 ![Transaction flow](transaction-boundary.png)
 
 See the "Transactions and Session methods" section at https://www.ibm.com/docs/en/wxs/8.6.1?topic=applications-using-sessions-access-data-in-grid 
 for more information on auto-commit.
 
+This means that any flow transaction rollbacks do not remove values added to the map, and so
+other mechanisms must be used to ensure the entries are removed (assuming this is needed). The 
+ACE MbGlobalMapSessionPolicy allows JavaCompute nodes to set a time-to-live value (link in the
+[references](#references) section) that allows data to automatically expire, and this approach
+can prevent the cache from continuously expanding when flow transactions roll back.
+
+### Effects on results shown above
+
+The wrtiter flow creates data map entries with an initial version of 0, and then increments the
+value on subsequent restarts. This means that the reader flow can tell if the writer flow is 
+running at the same time, as the version numbers will change for some entries while the reader
+is reading the map. The reader can also tell if any of the values are null, which indicates the 
+writer flow is still populating the cache. All of this is possible because the writer additions
+and updates are committed individually, and so the changes become visible immediately rather 
+than being committed when the flow commits.
+
+Looking at the results above, the reader reports the following for an empty cache
+```
+ReadMapData finished; foundAnyNullValues=true foundDifferentVersions=false
+```
+showing that it read null values for some entries due to the writer not having completed writing.
+
+When restarting the reader and writer flow server, the results are
+```
+ReadMapData finished; foundAnyNullValues=false foundDifferentVersions=true
+```
+showing that all the entries were present (no null values), but the version value changed
+during the reading of the entries. Each individual map entry will only ever have one version,
+but because the writer is committing updates individually, the version of one map entry may
+be different from another entry. It is also possible that the reader is reading stale version
+number data (where the new value has not propagated to all of the replicas) because the
+`replicaReadEnabled` configuration value in deployment.xml is set to `true`, though in this
+case there is only one container server and so this should not occur.
+
 ## References
 
-ACE global cache locking configuration: https://www.ibm.com/docs/en/app-connect/11.0.0?topic=data-configuring-locking-strategies
+ACE global cache locking configuration: https://www.ibm.com/docs/en/app-connect/12.0?topic=data-configuring-locking-strategies
+
+ACE global cache time-to-live: https://www.ibm.com/docs/en/app-connect/12.0?topic=agcbujn-specifying-how-long-data-remains-in-global-cache
 
 Locking strategies from the WXS docs: https://www.ibm.com/docs/en/wxs/8.6.1?topic=overview-locking-strategies
 
